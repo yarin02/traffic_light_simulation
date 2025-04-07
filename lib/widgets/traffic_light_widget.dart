@@ -1,80 +1,25 @@
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/consts.dart';
 import '../models/traffic_light.dart';
+import '../providers/global_timer.dart';
 
-class TrafficLightWidget extends StatefulWidget {
+/// A stateless widget that displays a traffic light based on the global timer.
+class TrafficLightWidget extends StatelessWidget {
   final bool isSync;
+  final int index;
 
-  const TrafficLightWidget({Key? key, required this.isSync}) : super(key: key);
-
-  @override
-  State<TrafficLightWidget> createState() => _TrafficLightWidgetState();
-}
-
-class _TrafficLightWidgetState extends State<TrafficLightWidget> {
-  final TrafficLight _light = TrafficLight();
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeTimer();
-  }
-
-  @override
-  void didUpdateWidget(TrafficLightWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.isSync != widget.isSync) {
-      // Reset the traffic light and restart the timer when mode changes
-      _resetLight();
-      _initializeTimer();
-    }
-  }
-
-  // Initialize the timer based on current mode
-  void _initializeTimer() {
-    widget.isSync ? _startLoop() : _startAfterRandomDelay();
-  }
-
-  // Reset the light state and cancel existing timer
-  void _resetLight() {
-    _timer?.cancel();
-    setState(() {
-      _light.currentState = TrafficLightState.red;
-    });
-  }
-
-  // Start after a random delay (chaos mode)
-  void _startAfterRandomDelay() async {
-    final delay = Duration(milliseconds: Random().nextInt(5000));
-    await Future.delayed(delay);
-    if (mounted) _startLoop();
-  }
-
-  // Start the regular state change loop
-  void _startLoop() {
-    _timer = Timer(_light.currentDuration, () {
-      if (!mounted) return;
-      setState(() {
-        _light.nextState();
-        _timer?.cancel();
-        _startLoop();
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  const TrafficLightWidget({
+    Key? key,
+    required this.isSync,
+    required this.index,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final currentState = _light.currentState;
+    final elapsed = context.watch<GlobalTimerProvider>().elapsed;
+    final currentState = _getCurrentState(elapsed);
 
     return Container(
       decoration: BoxDecoration(
@@ -85,12 +30,14 @@ class _TrafficLightWidgetState extends State<TrafficLightWidget> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _buildLight(
-            isOn: currentState == TrafficLightState.red ||
+            isOn:
+                currentState == TrafficLightState.red ||
                 currentState == TrafficLightState.redYellow,
             color: kRedLightColor,
           ),
           _buildLight(
-            isOn: currentState == TrafficLightState.yellow ||
+            isOn:
+                currentState == TrafficLightState.yellow ||
                 currentState == TrafficLightState.redYellow,
             color: kYellowLightColor,
           ),
@@ -101,6 +48,29 @@ class _TrafficLightWidgetState extends State<TrafficLightWidget> {
         ],
       ),
     );
+  }
+
+  /// Computes the current state of the traffic light based on the elapsed time.
+  TrafficLightState _getCurrentState(Duration elapsed) {
+    if (isSync) {
+      // Sync mode: use the elapsed time directly.
+      return TrafficLight.stateForTime(elapsed);
+    } else {
+      // Chaos mode: apply a random delay per widget.
+      final delay = _computeDelay();
+      if (elapsed < delay) {
+        return TrafficLightState.red;
+      } else {
+        return TrafficLight.stateForTime(elapsed - delay);
+      }
+    }
+  }
+
+  /// Computes a random delay (up to 5000ms) based on the widget's index.
+  Duration _computeDelay() {
+    final random = Random(index);
+    final ms = random.nextInt(5000);
+    return Duration(milliseconds: ms);
   }
 
   Widget _buildLight({required bool isOn, required Color color}) {

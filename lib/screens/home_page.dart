@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/consts.dart';
 import '../widgets/traffic_light_widget.dart';
+import '../providers/global_timer.dart'; // Make sure the import is correct
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,11 +14,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool isSyncMode = false;
 
-  // Toggle between synchronized and chaos modes
+  // Toggle between synchronized and chaos modes and reset the global timer
   void _toggleMode() {
     setState(() {
       isSyncMode = !isSyncMode;
     });
+    Provider.of<GlobalTimerProvider>(context, listen: false).reset();
   }
 
   @override
@@ -36,7 +39,6 @@ class _HomePageState extends State<HomePage> {
                 child: Text(isSyncMode ? "Chaos Mode" : "Synchronize Mode"),
               ),
             ),
-
             // Grid of Traffic Lights
             Expanded(
               child: Padding(
@@ -51,8 +53,9 @@ class _HomePageState extends State<HomePage> {
                   itemCount: kTrafficLightCount,
                   itemBuilder: (context, index) {
                     return TrafficLightWidget(
-                      key: ValueKey('traffic-light-$index'),
+                      key: ValueKey('traffic-light-$index-${isSyncMode ? "sync" : "chaos"}'),
                       isSync: isSyncMode,
+                      index: index,
                     );
                   },
                 ),
